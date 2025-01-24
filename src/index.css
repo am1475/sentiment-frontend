@@ -1,0 +1,64 @@
+/* src/index.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply bg-gray-100;
+}
+
+textarea {
+  @apply rounded-lg border-gray-300 focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50;
+}
+
+button {
+  @apply rounded-lg shadow-md;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+}
+
+a {
+  transition: color 0.3s ease;
+}
+
+button {
+  transition: background-color 0.3s ease;
+}
+
+button:hover {
+  background-color: #1e40af;
+}
+
+img {
+  border-radius: 0.375rem;
+}
+
+.container {
+  @apply mx-auto px-4;
+}
+
+.chart-container {
+  @apply mb-6 p-4 bg-white rounded-lg shadow-md;
+}
+
+h2 {
+  @apply text-2xl font-bold mb-4 text-gray-800;
+}
+
+h3 {
+  @apply text-xl font-semibold mb-2;
+}
+
+.final-sentiment {
+  @apply text-center mt-6;
+}
+
+.final-sentiment h3 {
+  @apply text-xl font-bold mb-2;
+}
+
+.final-sentiment p {
+  @apply text-lg;
+}
