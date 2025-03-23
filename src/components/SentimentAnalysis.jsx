@@ -11,7 +11,7 @@ const SentimentAnalysis = () => {
 
   const handleAnalyze = async () => {
     try {
-      const response = await axios.post('http://localhost:5000/analyze', { 
+      const response = await axios.post('https://sentiment-backend-2.onrender.com/analyze', { 
         productName, 
         feedback,
         rating // sending rating along with the payload
