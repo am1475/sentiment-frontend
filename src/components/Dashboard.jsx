@@ -60,16 +60,17 @@ const ReportSuggestion = ({ suggestionText, radarData, productNames, radarColors
       <style jsx>{`
         .pdf-report {
           width: 210mm;
+          max-width: 95%;
           min-height: 297mm;
           margin: 20px auto;
           padding: 40px;
-          background: #ffffff; /* white background for the report */
-          border: 3px groove #aaa;  /* 3D-style border */
+          background: #ffffff;
+          border: 3px groove #aaa;
           box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.3);
           font-family: 'Times New Roman', Times, serif;
           color: #000;
           position: relative;
-          font-size: 18px; /* increased base font size */
+          font-size: 18px;
         }
         .pdf-header {
           text-align: center;
@@ -79,7 +80,7 @@ const ReportSuggestion = ({ suggestionText, radarData, productNames, radarColors
         }
         .pdf-header h2 {
           margin: 0;
-          font-size: 28px;  /* increased header font size */
+          font-size: 28px;
         }
         .pdf-date {
           font-size: 16px;
@@ -89,7 +90,7 @@ const ReportSuggestion = ({ suggestionText, radarData, productNames, radarColors
           margin-top: 20px;
         }
         .pdf-content p {
-          font-size: 18px;  /* increased paragraph font size */
+          font-size: 18px;
           line-height: 1.5;
           margin-bottom: 16px;
         }
@@ -107,6 +108,18 @@ const ReportSuggestion = ({ suggestionText, radarData, productNames, radarColors
           font-size: 14px;
           color: #555;
         }
+        @media (max-width: 600px) {
+          .pdf-report {
+            padding: 20px;
+            font-size: 16px;
+          }
+          .pdf-header h2 {
+            font-size: 22px;
+          }
+          .pdf-content p {
+            font-size: 16px;
+          }
+        }
       `}</style>
     </div>
   );
@@ -116,16 +129,13 @@ const Dashboard = () => {
   const location = useLocation();
   const { sentimentData = { positive: 0, neutral: 0, negative: 0 } } = location.state || {};
 
-  // Use nested sentiment scores if available
   const dataForAnalysis = sentimentData.sentimentScores
     ? sentimentData.sentimentScores
     : sentimentData;
 
-  // State to store all stored product feedback and generated report
   const [storedData, setStoredData] = useState([]);
   const [report, setReport] = useState(null);
 
-  // Fetch stored product feedback from the backend
   useEffect(() => {
     const fetchStoredData = async () => {
       try {
@@ -139,7 +149,6 @@ const Dashboard = () => {
     fetchStoredData();
   }, []);
 
-  // Compute global sentiment percentages for the charts
   const totalSentiments =
     dataForAnalysis.positive + dataForAnalysis.neutral + dataForAnalysis.negative;
   const positivePercentage = totalSentiments ? (dataForAnalysis.positive / totalSentiments) * 100 : 0;
@@ -151,7 +160,6 @@ const Dashboard = () => {
     { name: 'Negative', value: negativePercentage },
   ];
 
-  // Compute average rating per product from storedData
   const productRatings = storedData.reduce((acc, cur) => {
     const product = cur.name;
     const rating = Number(cur.rating);
@@ -165,7 +173,6 @@ const Dashboard = () => {
     return acc;
   }, {});
 
-  // Create data for the Percentage Area Chart by converting avg rating (0-5) to percentage (0-100)
   const commodityRatingData = Object.entries(productRatings).map(
     ([product, { sum, count }]) => ({
       product,
@@ -177,7 +184,6 @@ const Dashboard = () => {
     percentage: (item.avgRating / 5) * 100,
   }));
 
-  // Aggregate data: count the number of reviews per product for Bar Chart
   const productReviewCounts = storedData.reduce((acc, item) => {
     acc[item.name] = (acc[item.name] || 0) + 1;
     return acc;
@@ -187,8 +193,6 @@ const Dashboard = () => {
     reviews: productReviewCounts[productName],
   }));
 
-  // --- Specified Domain Radar Chart Data ---
-  // Metrics: Avg Rating (0-5), Normalized Reviews (0-5), Overall Score (average)
   const productNames = Object.keys(productRatings);
   const maxReviewCount = Math.max(...Object.values(productReviewCounts), 1);
   const radarData = [
@@ -205,15 +209,12 @@ const Dashboard = () => {
     radarData[2][product] = overall;
   });
   const radarColors = ['#FF5722', '#4CAF50', '#1976d2', '#FFC107', '#F44336'];
-  // ----------------------------------------
 
-  // Generate report by calling the /gemini endpoint for suggestions
   const handleGenerateReport = async () => {
     if (storedData.length === 0) {
       setReport({ suggestion: 'No feedback available to generate a report.' });
       return;
     }
-    // Identify products with average rating below 3 stars
     const lowRatedProducts = Object.entries(productRatings)
       .map(([product, { sum, count }]) => ({ product, avg: sum / count }))
       .filter(item => item.avg < 3);
@@ -244,7 +245,6 @@ Include at least three actionable recommendations formatted as bullet points.
     }
   };
 
-  // Function to print only the suggestion box
   const printSuggestion = () => {
     const printContents = document.getElementById('suggestion-box').innerHTML;
     const newWindow = window.open('', '', 'height=800,width=600');
@@ -279,7 +279,6 @@ Include at least three actionable recommendations formatted as bullet points.
 
         {/* Global Sentiment Analysis Graphs */}
         <div className="flex flex-col lg:flex-row lg:justify-around gap-6 mb-6">
-          {/* Bar Chart for Global Sentiment */}
           <div className="w-full lg:w-5/12 p-4 bg-white rounded-lg shadow-md">
             <h3 className="text-xl font-semibold mb-4 text-center">Sentiment Bar Chart</h3>
             <ResponsiveContainer width="100%" height={300}>
@@ -294,7 +293,6 @@ Include at least three actionable recommendations formatted as bullet points.
             </ResponsiveContainer>
           </div>
 
-          {/* Line Chart for Global Sentiment */}
           <div className="w-full lg:w-5/12 p-4 bg-white rounded-lg shadow-md">
             <h3 className="text-xl font-semibold mb-4 text-center">Sentiment Line Chart</h3>
             <ResponsiveContainer width="100%" height={300}>
@@ -341,10 +339,7 @@ Include at least three actionable recommendations formatted as bullet points.
                 </thead>
                 <tbody>
                   {storedData.map((item, index) => (
-                    <tr
-                      key={index}
-                      className="text-center border-b border-gray-300"
-                    >
+                    <tr key={index} className="text-center border-b border-gray-300">
                       <td className="py-2 px-4 border">{item.name}</td>
                       <td className="py-2 px-4 border">{item.feedback}</td>
                       <td className="py-2 px-4 border">{item.rating}</td>
