@@ -109,7 +109,7 @@ const SentimentAnalysis = () => {
             className="sentiment-input"
             value={rating}
             onChange={(e) => setRating(e.target.value)}
-            placeholder="Enter product rating"
+            placeholder="Enter product rating (out of 5)"
           />
           <button className="analyze-button" onClick={handleAnalyze}>
             Analyze Sentiment

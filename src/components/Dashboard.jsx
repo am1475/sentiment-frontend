@@ -135,6 +135,8 @@ const Dashboard = () => {
 
   const [storedData, setStoredData] = useState([]);
   const [report, setReport] = useState(null);
+  // State to track the selected product (if any)
+  const [selectedProduct, setSelectedProduct] = useState(null);
 
   useEffect(() => {
     const fetchStoredData = async () => {
@@ -149,6 +151,7 @@ const Dashboard = () => {
     fetchStoredData();
   }, []);
 
+  // Existing chart data for current sentiment (remains unchanged)
   const totalSentiments =
     dataForAnalysis.positive + dataForAnalysis.neutral + dataForAnalysis.negative;
   const positivePercentage = totalSentiments ? (dataForAnalysis.positive / totalSentiments) * 100 : 0;
@@ -160,6 +163,7 @@ const Dashboard = () => {
     { name: 'Negative', value: negativePercentage },
   ];
 
+  // Compute product ratings for radar chart and commodity analysis (existing)
   const productRatings = storedData.reduce((acc, cur) => {
     const product = cur.name;
     const rating = Number(cur.rating);
@@ -209,6 +213,72 @@ const Dashboard = () => {
     radarData[2][product] = overall;
   });
   const radarColors = ['#FF5722', '#4CAF50', '#1976d2', '#FFC107', '#F44336'];
+
+  // Updated helper function to compute sentiment percentages using rating ranges.
+  const computeSentiment = (data) => {
+    let extremelyPositive = 0,
+      positive = 0,
+      neutral = 0,
+      negative = 0,
+      extremelyNegative = 0;
+    data.forEach(entry => {
+      const rating = Number(entry.rating);
+      if (rating >= 4.5) extremelyPositive++;
+      else if (rating >= 3.5) positive++;
+      else if (rating >= 2.5) neutral++;
+      else if (rating >= 1.5) negative++;
+      else extremelyNegative++;
+    });
+    const total = extremelyPositive + positive + neutral + negative + extremelyNegative;
+    return total > 0
+      ? {
+          extremelyPositive: (extremelyPositive / total) * 100,
+          positive: (positive / total) * 100,
+          neutral: (neutral / total) * 100,
+          negative: (negative / total) * 100,
+          extremelyNegative: (extremelyNegative / total) * 100,
+        }
+      : { extremelyPositive: 0, positive: 0, neutral: 0, negative: 0, extremelyNegative: 0 };
+  };
+
+  // Compute overall sentiment using all stored data
+  const overallSentiment = computeSentiment(storedData);
+
+  // Compute sentiment for the selected product if one is selected
+  const productSentiment = selectedProduct
+    ? computeSentiment(storedData.filter(item => item.name === selectedProduct))
+    : overallSentiment;
+
+  // Prepare data for the line chart to show sentiment analysis across 5 categories.
+  const lineChartData = [
+    { sentiment: 'Extremely Positive', value: productSentiment.extremelyPositive },
+    { sentiment: 'Positive', value: productSentiment.positive },
+    { sentiment: 'Neutral', value: productSentiment.neutral },
+    { sentiment: 'Negative', value: productSentiment.negative },
+    { sentiment: 'Extremely Negative', value: productSentiment.extremelyNegative },
+  ];
+
+  // Group storedData by product so that each product appears once in the feedback table.
+  const groupedFeedback = storedData.reduce((acc, cur) => {
+    if (!acc[cur.name]) {
+      acc[cur.name] = {
+        name: cur.name,
+        totalRating: Number(cur.rating),
+        count: 1,
+        feedbacks: [cur.feedback],
+      };
+    } else {
+      acc[cur.name].totalRating += Number(cur.rating);
+      acc[cur.name].count += 1;
+      acc[cur.name].feedbacks.push(cur.feedback);
+    }
+    return acc;
+  }, {});
+  // Remove duplicate feedbacks for each product.
+  const uniqueFeedback = Object.values(groupedFeedback).map(item => ({
+    ...item,
+    feedbacks: Array.from(new Set(item.feedbacks))
+  }));
 
   const handleGenerateReport = async () => {
     if (storedData.length === 0) {
@@ -267,10 +337,14 @@ Include at least three actionable recommendations formatted as bullet points.
       </html>
     `);
     newWindow.document.close();
+    // Add event listener for afterprint event
+    newWindow.addEventListener('afterprint', () => {
+      newWindow.close();
+    });
     newWindow.focus();
     newWindow.print();
-    newWindow.close();
   };
+  
 
   return (
     <div className="min-h-screen w-full" style={{ backgroundColor: '#0d1b2a' }}>
@@ -308,10 +382,29 @@ Include at least three actionable recommendations formatted as bullet points.
           </div>
         </div>
 
-        {/* Commodity Average Rating Percentage Area Chart */}
-        <div className="flex justify-center mb-6">
-          <div className="p-4 bg-white rounded-lg shadow-md">
-            <ResponsiveContainer width={300} height={300}>
+        {/* Flex container for adjacent charts on large screens */}
+        <div className="flex flex-col lg:flex-row gap-6 mb-6">
+          {/* Overall / Product Sentiment Analysis Line Chart */}
+          <div className="w-full lg:w-1/2 p-4 bg-white rounded-lg shadow-md">
+            <h3 className="text-xl font-semibold mb-4 text-center">
+              {selectedProduct ? `Sentiment Analysis for ${selectedProduct}` : 'Overall Sentiment Analysis'}
+            </h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={lineChartData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="sentiment" />
+                <YAxis domain={[0, 100]} tickFormatter={(tick) => `${tick.toFixed(0)}%`} />
+                <Tooltip formatter={(value) => `${value.toFixed(1)}%`} />
+                <Legend />
+                <Line type="monotone" dataKey="value" stroke="#1976d2" strokeWidth={3} name="Sentiment (%)" />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Commodity Average Rating Percentage Area Chart */}
+          <div className="w-full lg:w-1/2 p-4 bg-white rounded-lg shadow-md">
+            <h3 className="text-xl font-semibold mb-4 text-center">Avg Rating (%) by Product</h3>
+            <ResponsiveContainer width="100%" height={300}>
               <AreaChart data={percentageAreaData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="product" />
@@ -324,29 +417,40 @@ Include at least three actionable recommendations formatted as bullet points.
           </div>
         </div>
 
-        {/* Product Feedback Table */}
+        {/* Product Feedback Table (Grouped by Product with Unique Feedbacks) */}
         <div className="stored-data mb-6">
           <h3 className="text-2xl font-bold mb-4 text-center text-white">Product Feedback</h3>
-          {storedData.length > 0 ? (
+          {uniqueFeedback.length > 0 ? (
             <div className="overflow-auto max-h-80">
               <table className="w-full bg-white rounded-lg shadow-md">
                 <thead className="bg-gray-200">
                   <tr>
                     <th className="py-2 px-4 border">Product</th>
-                    <th className="py-2 px-4 border">Feedback</th>
-                    <th className="py-2 px-4 border">Rating</th>
+                    <th className="py-2 px-4 border">Feedbacks</th>
+                    <th className="py-2 px-4 border">Avg. Rating</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {storedData.map((item, index) => (
-                    <tr key={index} className="text-center border-b border-gray-300">
+                  {uniqueFeedback.map((item, index) => (
+                    <tr
+                      key={index}
+                      className={`text-center border-b border-gray-300 cursor-pointer ${
+                        selectedProduct === item.name ? 'bg-blue-100' : ''
+                      }`}
+                      onClick={() => setSelectedProduct(item.name)}
+                    >
                       <td className="py-2 px-4 border">{item.name}</td>
-                      <td className="py-2 px-4 border">{item.feedback}</td>
-                      <td className="py-2 px-4 border">{item.rating}</td>
+                      <td className="py-2 px-4 border">{item.feedbacks.join(' | ')}</td>
+                      <td className="py-2 px-4 border">{(item.totalRating / item.count).toFixed(1)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+              {selectedProduct && (
+                <p className="mt-2 text-center text-blue-600">
+                  Showing sentiment analysis for <strong>{selectedProduct}</strong>
+                </p>
+              )}
             </div>
           ) : (
             <p className="text-lg text-center text-white">No product feedback stored yet.</p>
