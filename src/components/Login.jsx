@@ -11,7 +11,7 @@ const Login = () => {
   const signInWithEmail = async () => {
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      navigate('/sentimentAnalysis');
+      navigate('/dashboard');
     } catch (error) {
       console.error('Error during email sign in:', error);
     }
@@ -20,7 +20,7 @@ const Login = () => {
   const handleGoogleSignIn = async () => {
     try {
       await signInWithGoogle();
-      navigate('/sentimentAnalysis');
+      navigate('/dashboard');
     } catch (error) {
       console.error('Error during Google sign in:', error);
     }

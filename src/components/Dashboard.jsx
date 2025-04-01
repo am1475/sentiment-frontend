@@ -22,7 +22,7 @@ import {
   Radar,
 } from 'recharts';
 
-// ReportSuggestion component styled to look like a printed PDF page (white background with 3D border)
+// ReportSuggestion component styled to look like a printed PDF page
 const ReportSuggestion = ({ suggestionText, radarData, productNames, radarColors }) => {
   return (
     <div id="suggestion-box" className="pdf-report">
@@ -127,15 +127,13 @@ const ReportSuggestion = ({ suggestionText, radarData, productNames, radarColors
 
 const Dashboard = () => {
   const location = useLocation();
-  const { sentimentData = { positive: 0, neutral: 0, negative: 0 } } = location.state || {};
-
-  const dataForAnalysis = sentimentData.sentimentScores
-    ? sentimentData.sentimentScores
-    : sentimentData;
+  // Check if current feedback sentiment data was passed via location.state.
+  const { sentimentData } = location.state || {};
+  // If sentimentData exists, it might contain a sentimentScores field.
+  const dataForAnalysis = sentimentData ? (sentimentData.sentimentScores || sentimentData) : null;
 
   const [storedData, setStoredData] = useState([]);
   const [report, setReport] = useState(null);
-  // State to track the selected product (if any)
   const [selectedProduct, setSelectedProduct] = useState(null);
 
   useEffect(() => {
@@ -151,19 +149,70 @@ const Dashboard = () => {
     fetchStoredData();
   }, []);
 
-  // Existing chart data for current sentiment (remains unchanged)
-  const totalSentiments =
-    dataForAnalysis.positive + dataForAnalysis.neutral + dataForAnalysis.negative;
-  const positivePercentage = totalSentiments ? (dataForAnalysis.positive / totalSentiments) * 100 : 0;
-  const neutralPercentage = totalSentiments ? (dataForAnalysis.neutral / totalSentiments) * 100 : 0;
-  const negativePercentage = totalSentiments ? (dataForAnalysis.negative / totalSentiments) * 100 : 0;
-  const analysisChartData = [
-    { name: 'Positive', value: positivePercentage },
-    { name: 'Neutral', value: neutralPercentage },
-    { name: 'Negative', value: negativePercentage },
-  ];
+  // Helper function to compute sentiment percentages using rating ranges.
+  const computeSentiment = (data) => {
+    let extremelyPositive = 0,
+      positive = 0,
+      neutral = 0,
+      negative = 0,
+      extremelyNegative = 0;
+    data.forEach(entry => {
+      const rating = Number(entry.rating);
+      if (rating >= 4.5) extremelyPositive++;
+      else if (rating >= 3.5) positive++;
+      else if (rating >= 2.5) neutral++;
+      else if (rating >= 1.5) negative++;
+      else extremelyNegative++;
+    });
+    const total = extremelyPositive + positive + neutral + negative + extremelyNegative;
+    return total > 0
+      ? {
+          extremelyPositive: (extremelyPositive / total) * 100,
+          positive: (positive / total) * 100,
+          neutral: (neutral / total) * 100,
+          negative: (negative / total) * 100,
+          extremelyNegative: (extremelyNegative / total) * 100,
+        }
+      : { extremelyPositive: 0, positive: 0, neutral: 0, negative: 0, extremelyNegative: 0 };
+  };
 
-  // Compute product ratings for radar chart and commodity analysis (existing)
+  // Compute overall sentiment from stored feedback data (historical)
+  const overallSentiment = computeSentiment(storedData);
+
+  // Determine which sentiment data to use for the graphs:
+  // - If current feedback (dataForAnalysis) is available, use that.
+  // - Otherwise, use the overall sentiment computed from historical data.
+  const currentSentimentAvailable = dataForAnalysis !== null;
+
+  const analysisChartData = currentSentimentAvailable
+    ? [
+        { name: 'Positive', value: dataForAnalysis.positive },
+        { name: 'Neutral', value: dataForAnalysis.neutral },
+        { name: 'Negative', value: dataForAnalysis.negative },
+      ]
+    : [
+        { name: 'Positive', value: overallSentiment.positive },
+        { name: 'Neutral', value: overallSentiment.neutral },
+        { name: 'Negative', value: overallSentiment.negative },
+      ];
+
+  // For the line chart, show a detailed breakdown when historical data is used.
+  // If current sentiment is available, show a simplified chart.
+  const lineChartData = currentSentimentAvailable
+    ? [
+        { sentiment: 'Positive', value: dataForAnalysis.positive },
+        { sentiment: 'Neutral', value: dataForAnalysis.neutral },
+        { sentiment: 'Negative', value: dataForAnalysis.negative },
+      ]
+    : [
+        { sentiment: 'Extremely Positive', value: overallSentiment.extremelyPositive },
+        { sentiment: 'Positive', value: overallSentiment.positive },
+        { sentiment: 'Neutral', value: overallSentiment.neutral },
+        { sentiment: 'Negative', value: overallSentiment.negative },
+        { sentiment: 'Extremely Negative', value: overallSentiment.extremelyNegative },
+      ];
+
+  // Compute product ratings for radar chart and commodity analysis.
   const productRatings = storedData.reduce((acc, cur) => {
     const product = cur.name;
     const rating = Number(cur.rating);
@@ -213,50 +262,6 @@ const Dashboard = () => {
     radarData[2][product] = overall;
   });
   const radarColors = ['#FF5722', '#4CAF50', '#1976d2', '#FFC107', '#F44336'];
-
-  // Updated helper function to compute sentiment percentages using rating ranges.
-  const computeSentiment = (data) => {
-    let extremelyPositive = 0,
-      positive = 0,
-      neutral = 0,
-      negative = 0,
-      extremelyNegative = 0;
-    data.forEach(entry => {
-      const rating = Number(entry.rating);
-      if (rating >= 4.5) extremelyPositive++;
-      else if (rating >= 3.5) positive++;
-      else if (rating >= 2.5) neutral++;
-      else if (rating >= 1.5) negative++;
-      else extremelyNegative++;
-    });
-    const total = extremelyPositive + positive + neutral + negative + extremelyNegative;
-    return total > 0
-      ? {
-          extremelyPositive: (extremelyPositive / total) * 100,
-          positive: (positive / total) * 100,
-          neutral: (neutral / total) * 100,
-          negative: (negative / total) * 100,
-          extremelyNegative: (extremelyNegative / total) * 100,
-        }
-      : { extremelyPositive: 0, positive: 0, neutral: 0, negative: 0, extremelyNegative: 0 };
-  };
-
-  // Compute overall sentiment using all stored data
-  const overallSentiment = computeSentiment(storedData);
-
-  // Compute sentiment for the selected product if one is selected
-  const productSentiment = selectedProduct
-    ? computeSentiment(storedData.filter(item => item.name === selectedProduct))
-    : overallSentiment;
-
-  // Prepare data for the line chart to show sentiment analysis across 5 categories.
-  const lineChartData = [
-    { sentiment: 'Extremely Positive', value: productSentiment.extremelyPositive },
-    { sentiment: 'Positive', value: productSentiment.positive },
-    { sentiment: 'Neutral', value: productSentiment.neutral },
-    { sentiment: 'Negative', value: productSentiment.negative },
-    { sentiment: 'Extremely Negative', value: productSentiment.extremelyNegative },
-  ];
 
   // Group storedData by product so that each product appears once in the feedback table.
   const groupedFeedback = storedData.reduce((acc, cur) => {
@@ -337,14 +342,12 @@ Include at least three actionable recommendations formatted as bullet points.
       </html>
     `);
     newWindow.document.close();
-    // Add event listener for afterprint event
     newWindow.addEventListener('afterprint', () => {
       newWindow.close();
     });
     newWindow.focus();
     newWindow.print();
   };
-  
 
   return (
     <div className="min-h-screen w-full" style={{ backgroundColor: '#0d1b2a' }}>
@@ -370,11 +373,11 @@ Include at least three actionable recommendations formatted as bullet points.
           <div className="w-full lg:w-5/12 p-4 bg-white rounded-lg shadow-md">
             <h3 className="text-xl font-semibold mb-4 text-center">Sentiment Line Chart</h3>
             <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={analysisChartData} margin={{ top: 20, right: 20, left: 20, bottom: 5 }}>
+              <LineChart data={lineChartData} margin={{ top: 20, right: 20, left: 20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip />
+                <XAxis dataKey="sentiment" />
+                <YAxis domain={[0, 100]} tickFormatter={(tick) => `${tick.toFixed(0)}%`} />
+                <Tooltip formatter={(value) => `${value.toFixed(1)}%`} />
                 <Legend />
                 <Line type="monotone" dataKey="value" stroke="#F44336" strokeWidth={3} activeDot={{ r: 8 }} />
               </LineChart>
@@ -382,7 +385,7 @@ Include at least three actionable recommendations formatted as bullet points.
           </div>
         </div>
 
-        {/* Flex container for adjacent charts on large screens */}
+        {/* Adjacent Charts on Larger Screens */}
         <div className="flex flex-col lg:flex-row gap-6 mb-6">
           {/* Overall / Product Sentiment Analysis Line Chart */}
           <div className="w-full lg:w-1/2 p-4 bg-white rounded-lg shadow-md">

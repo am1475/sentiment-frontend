@@ -1,10 +1,15 @@
 import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import logo from '../images/logo2.jpeg'; // Ensure this path points to your actual logo image
+import { auth } from '../firebase';
+import { useAuthState } from 'react-firebase-hooks/auth';
+import { signOut } from 'firebase/auth';
 
 const Navbar = ({ scrollToSection, aboutRef, contactRef }) => {
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const [user] = useAuthState(auth); // Check authentication state
 
   const handleScroll = (sectionRef) => {
     if (location.pathname === '/') {
@@ -14,6 +19,15 @@ const Navbar = ({ scrollToSection, aboutRef, contactRef }) => {
       setTimeout(() => {
         scrollToSection(sectionRef);
       }, 100); // Small delay to ensure the page has loaded
+    }
+  };
+
+  const logout = async () => {
+    try {
+      await signOut(auth);
+      navigate('/'); // Redirect to home page after logout
+    } catch (error) {
+      console.error('Error signing out:', error);
     }
   };
 
@@ -28,7 +42,10 @@ const Navbar = ({ scrollToSection, aboutRef, contactRef }) => {
         </div>
         {/* Desktop Menu */}
         <div className="hidden md:flex space-x-6">
-          <Link to="/" className="text-gray-600 hover:text-blue-600 transition duration-300">
+          <Link
+            to="/"
+            className="text-gray-600 hover:text-blue-600 transition duration-300"
+          >
             Home
           </Link>
           <span
@@ -43,12 +60,44 @@ const Navbar = ({ scrollToSection, aboutRef, contactRef }) => {
           >
             Contact
           </span>
-          <Link to="/login" className="text-gray-600 hover:text-blue-600 transition duration-300">
-            Login
-          </Link>
-          <Link to="/signup" className="text-gray-600 hover:text-blue-600 transition duration-300">
-            Signup
-          </Link>
+          {/* Conditionally render Dashboard, Customer, and Logout if user is logged in */}
+          {user ? (
+            <>
+              <Link
+                to="/dashboard"
+                className="text-gray-600 hover:text-blue-600 transition duration-300"
+              >
+                Dashboard
+              </Link>
+              <Link 
+                to="/customer" 
+                className="text-gray-600 hover:text-blue-600 transition duration-300"
+              >
+                Customer
+              </Link>
+              <span
+                onClick={logout}
+                className="cursor-pointer text-gray-600 hover:text-blue-600 transition duration-300"
+              >
+                Logout
+              </span>
+            </>
+          ) : (
+            <>
+              <Link
+                to="/login"
+                className="text-gray-600 hover:text-blue-600 transition duration-300"
+              >
+                Login
+              </Link>
+              <Link
+                to="/signup"
+                className="text-gray-600 hover:text-blue-600 transition duration-300"
+              >
+                Signup
+              </Link>
+            </>
+          )}
         </div>
         {/* Mobile Menu Button */}
         <div className="md:hidden">
@@ -100,20 +149,50 @@ const Navbar = ({ scrollToSection, aboutRef, contactRef }) => {
             >
               Contact
             </span>
-            <Link
-              to="/login"
-              onClick={() => setIsOpen(false)}
-              className="block text-gray-600 hover:text-blue-600 transition duration-300"
-            >
-              Login
-            </Link>
-            <Link
-              to="/signup"
-              onClick={() => setIsOpen(false)}
-              className="block text-gray-600 hover:text-blue-600 transition duration-300"
-            >
-              Signup
-            </Link>
+            {user ? (
+              <>
+                <Link
+                  to="/dashboard"
+                  onClick={() => setIsOpen(false)}
+                  className="block text-gray-600 hover:text-blue-600 transition duration-300"
+                >
+                  Dashboard
+                </Link>
+                <Link
+                  to="/customer"
+                  onClick={() => setIsOpen(false)}
+                  className="block text-gray-600 hover:text-blue-600 transition duration-300"
+                >
+                  Customer
+                </Link>
+                <span
+                  onClick={() => {
+                    logout();
+                    setIsOpen(false);
+                  }}
+                  className="block cursor-pointer text-gray-600 hover:text-blue-600 transition duration-300"
+                >
+                  Logout
+                </span>
+              </>
+            ) : (
+              <>
+                <Link
+                  to="/login"
+                  onClick={() => setIsOpen(false)}
+                  className="block text-gray-600 hover:text-blue-600 transition duration-300"
+                >
+                  Login
+                </Link>
+                <Link
+                  to="/signup"
+                  onClick={() => setIsOpen(false)}
+                  className="block text-gray-600 hover:text-blue-600 transition duration-300"
+                >
+                  Signup
+                </Link>
+              </>
+            )}
           </div>
         </div>
       )}
